@@ -1,80 +1,71 @@
-import React, { useState, useEffect } from 'react';
-import MapGL, { Marker, Popup } from 'react-map-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-// Mapbox access token.
-const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
+// Custom icon setup
+const hospitalIcon = L.icon({
+  iconUrl: '/icons/hospital.png',
+  iconSize: [30, 30],
+  iconAnchor: [15, 30],
+  popupAnchor: [0, -30],
+});
 
-export default function MapComponent() {
-  const [viewport, setViewport] = useState({
-    latitude: 4.8156,
-    longitude: 7.0056,
-    zoom: 12,
-    bearing: 0,
-    pitch: 0,
-    width: '800px',
-    height: '600px',
-  });
+function MapComponent() {
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
 
-  const [healthcareFacilities, setHealthcareFacilities] = useState([]);
-  const [selectedFacility, setSelectedFacility] = useState(null);
+  useEffect(() => {
+    fetchFacilityData();
 
-  // Function to fetch healthcare facilities data
-  const fetchHealthcareFacilities = async () => {
+    if (mapContainerRef.current) {
+      mapRef.current = L.map(mapContainerRef.current).setView([4.81299, 7.00261], 10);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(mapRef.current);
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+      }
+    };
+  }, []);
+
+  const fetchFacilityData = async () => {
     try {
       const response = await fetch('http://localhost:3001/api/healthcare-facilities');
+
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      const data = await response.json();
-      setHealthcareFacilities(data);
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        addMarkers(data);
+      } else {
+        const textResponse = await response.text();
+        console.error('Received response is not JSON:', textResponse);
+        throw new Error('Response is not valid JSON');
+      }
     } catch (error) {
-      console.error('Error fetching healthcare facilities:', error);
+      console.error('Error fetching facility data:', error);
     }
   };
 
-  useEffect(() => {
-    fetchHealthcareFacilities(); // Fetch data on component mount
-  }, []);
+  const addMarkers = (facilities) => {
+    facilities.forEach(facility => {
+      const marker = L.marker([facility.latitude, facility.longitude], { icon: hospitalIcon }).addTo(mapRef.current);
+      marker.bindPopup(`<b>${facility.name}</b><br>${facility.description}`).openPopup();
+    });
+  };
 
   return (
-    <div className="w-full h-full">
-      <MapGL
-        {...viewport}
-        mapStyle="mapbox://styles/mapbox/streets-v11"
-        mapboxAccessToken={MAPBOX_TOKEN}
-        onViewportChange={(nextViewport) => setViewport(nextViewport)}
-      >
-        {healthcareFacilities.map((facility) =>
-          facility.latitude != null && facility.longitude != null ? (
-            <Marker
-              key={facility.id}
-              latitude={facility.latitude}
-              longitude={facility.longitude}
-            >
-              <button
-                className="bg-green-500 rounded-full w-3 h-3"
-                onClick={() => setSelectedFacility(facility)}
-              ></button>
-            </Marker>
-          ) : null
-        )}
-
-        {selectedFacility && (
-          <Popup
-            latitude={selectedFacility.latitude}
-            longitude={selectedFacility.longitude}
-            onClose={() => setSelectedFacility(null)}
-            closeOnClick={true}
-            className="bg-white p-2 rounded"
-          >
-            <div>
-              <h3 className="text-green-600 font-bold">{selectedFacility.name}</h3>
-              <p>{selectedFacility.description}</p>
-            </div>
-          </Popup>
-        )}
-      </MapGL>
+    <div>
+      <div ref={mapContainerRef} style={{ height: '500px', width: '100%' }}></div>
     </div>
   );
 }
+
+export default MapComponent;

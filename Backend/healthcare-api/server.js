@@ -76,7 +76,6 @@ const healthcareFacilities = [
     longitude: 6.97785,
     description: 'A private medical center offering various health services.',
   },
-  // Add more facilities as needed
 ];
 
 // In-memory array to store contact submissions
