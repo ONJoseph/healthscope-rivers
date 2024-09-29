@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const cors = require('cors');
 
@@ -80,6 +79,9 @@ const healthcareFacilities = [
   // Add more facilities as needed
 ];
 
+// In-memory array to store contact submissions
+const contactSubmissions = [];
+
 // Middleware
 app.use(cors()); // Enable CORS for all routes
 app.use(express.json()); // Parse JSON bodies
@@ -87,6 +89,31 @@ app.use(express.json()); // Parse JSON bodies
 // Define an endpoint to get healthcare facilities
 app.get('/api/healthcare-facilities', (req, res) => {
   res.json(healthcareFacilities); // Return the healthcare facilities data
+});
+
+// Define an endpoint to handle contact form submissions
+app.post('/api/contact', (req, res) => {
+  const { name, email, message } = req.body;
+
+  // Validate input
+  if (!name || !email || !message) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
+
+  try {
+    // Simulate saving the contact data to a database
+    const newContact = { name, email, message, date: new Date() };
+    contactSubmissions.push(newContact);
+
+    // Log the contact data (optional)
+    console.log('New Contact Submission:', newContact);
+
+    // Send a response back to the client
+    res.status(200).json({ message: 'Contact form submitted successfully!' });
+  } catch (error) {
+    console.error('Error saving contact data:', error);
+    res.status(500).json({ message: 'An error occurred while saving your contact data.' });
+  }
 });
 
 // Start the server
